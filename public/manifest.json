@@ -1,0 +1,30 @@
+{
+  "name": "SynAdd",
+  "short_name": "SynAdd",
+  "description": "A powerful, high-performance additive synthesizer",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "landscape",
+  "scope": "/synadd/",
+  "start_url": "/synadd/",
+  "icons": [
+    {
+      "src": "pwa-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "pwa-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "pwa-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["music", "entertainment", "utilities"]
+}
