@@ -165,12 +165,12 @@ export function HarmonicRow({ harmonic, detuningAllowed, onUpdate }: HarmonicRow
   return (
     <div
       className={cn(
-        "grid grid-cols-[30px_30px_1fr_1fr_1fr] gap-4 items-center px-3 py-2 rounded",
+        "flex gap-2 md:gap-4 items-center md:items-center px-3 py-2 rounded",
         harmonic.id % 2 === 0 ? "bg-slate-900/50" : "bg-slate-900"
       )}
     >
       {/* Mute checkbox */}
-      <div className="flex justify-center">
+      <div className="flex justify-center w-[30px] shrink-0">
         <Checkbox
           checked={!harmonic.mute}
           onCheckedChange={(checked) => onUpdate({ mute: !checked })}
@@ -179,47 +179,50 @@ export function HarmonicRow({ harmonic, detuningAllowed, onUpdate }: HarmonicRow
       </div>
 
       {/* Harmonic number */}
-      <div className="text-sm text-slate-400 font-mono tabular-nums text-center">
+      <div className="text-sm text-slate-400 font-mono tabular-nums text-center w-[30px] shrink-0">
         {harmonic.id}
       </div>
 
-      <HarmonicSlider
-        value={harmonic.amplitude}
-        onValueChange={(value) => onUpdate({ amplitude: value })}
-        min={0}
-        max={MAX_AMPLITUDE}
-        step={1}
-        defaultValue={isFundamental ? MAX_AMPLITUDE : 0}
-        format={(v) => v.toFixed(0)}
-        textClassName="w-12"
-      />
+      {/* Sliders Container */}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
+        <HarmonicSlider
+          value={harmonic.amplitude}
+          onValueChange={(value) => onUpdate({ amplitude: value })}
+          min={0}
+          max={MAX_AMPLITUDE}
+          step={1}
+          defaultValue={isFundamental ? MAX_AMPLITUDE : 0}
+          format={(v) => v.toFixed(0)}
+          textClassName="w-12"
+        />
 
-      {/* Phase slider */}
-      <HarmonicSlider
-        value={harmonic.phase}
-        onValueChange={(value) => onUpdate({ phase: value })}
-        min={0}
-        max={MAX_PHASE}
-        step={1}
-        defaultValue={0}
-        format={(v) => `${v}°`}
-        textClassName="w-10"
-        className="pl-8" // Extra spacing
-      />
+        {/* Phase slider */}
+        <HarmonicSlider
+          value={harmonic.phase}
+          onValueChange={(value) => onUpdate({ phase: value })}
+          min={0}
+          max={MAX_PHASE}
+          step={1}
+          defaultValue={0}
+          format={(v) => `${v}°`}
+          textClassName="w-10"
+          className="md:pl-8" // Extra spacing only on desktop
+        />
 
-      {/* Tuning slider */}
-      <HarmonicSlider
-        value={detuningAllowed ? harmonic.tuning : 0}
-        onValueChange={(value) => onUpdate({ tuning: value })}
-        min={MIN_TUNING}
-        max={MAX_TUNING}
-        step={1}
-        defaultValue={0}
-        format={detuningAllowed ? formatTuning : () => "0c"}
-        textClassName="w-12"
-        className="pl-8" // Extra spacing
-        disabled={!detuningAllowed}
-      />
+        {/* Tuning slider */}
+        <HarmonicSlider
+          value={detuningAllowed ? harmonic.tuning : 0}
+          onValueChange={(value) => onUpdate({ tuning: value })}
+          min={MIN_TUNING}
+          max={MAX_TUNING}
+          step={1}
+          defaultValue={0}
+          format={detuningAllowed ? formatTuning : () => "0c"}
+          textClassName="w-12"
+          className="md:pl-8" // Extra spacing only on desktop
+          disabled={!detuningAllowed}
+        />
+      </div>
     </div>
   );
 }

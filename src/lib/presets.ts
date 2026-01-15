@@ -40,13 +40,14 @@ export function compressHarmonics(harmonics: PartialHarmonic[]): PartialHarmonic
   return harmonics
     .map((h) => {
       // Skip if muted or silent (amplitude 0)
-      if (h.mute || !h.amplitude) {
+      const amplitude = Math.round(h.amplitude ?? 0);
+      if (h.mute || !amplitude) {
         return null;
       }
 
       const partial: PartialHarmonic = { 
         id: h.id,
-        amplitude: Math.round(h.amplitude),
+        amplitude,
       };
       
       const phase = Math.round(h.phase ?? 0) % 360;

@@ -84,14 +84,14 @@ export function useSynthEngine(): SynthEngineState & SynthEngineActions {
     setHarmonicsState((prev) =>
       prev.map((h) => (h.id === id ? { ...h, ...updates } : h))
     );
-  }, []);
+  }, [setHarmonicsState]);
 
   const setHarmonics = useCallback((harmonics: Harmonic[]) => {
     setHarmonicsState(harmonics);
-  }, []);
+  }, [setHarmonicsState]);
 
   const setHarmonicCount = useCallback((count: number) => {
-    setHarmonicCountState(Math.max(1, Math.min(32, count)));
+    setHarmonicCountState(Math.max(1, Math.min(128, count)));
   }, []);
 
   const setMasterGain = useCallback((gain: number) => {
@@ -129,10 +129,10 @@ export function useSynthEngine(): SynthEngineState & SynthEngineActions {
         return;
       }
 
-      if (e.ctrlKey && e.key === "z" && !e.shiftKey) {
+      if (e.ctrlKey && e.key.toLowerCase() === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
-      } else if (e.ctrlKey && e.shiftKey && e.key === "Z") {
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
         redo();
       }

@@ -161,8 +161,7 @@ export function PresetsPanel({ onPresetSelect, currentHarmonics }: PresetsPanelP
                     >
                       <Button
                         variant="secondary"
-                        size="sm"
-                        className="w-full text-xs bg-slate-800/50 hover:bg-slate-800 text-slate-300 justify-start pl-2 pr-8 truncate"
+                        className="w-full h-10 md:h-8 text-sm md:text-xs bg-slate-800/50 hover:bg-slate-800 text-slate-300 justify-start pl-2 pr-8 truncate"
                         onClick={() => onPresetSelect(preset.harmonics)}
                       >
                         {preset.name}
@@ -186,13 +185,12 @@ export function PresetsPanel({ onPresetSelect, currentHarmonics }: PresetsPanelP
             {/* Built-in Presets Section */}
             <div>
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Built-in</h4>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {BUILT_IN_PRESETS.map((preset) => (
                   <Button
                     key={preset.name}
                     variant="secondary"
-                    size="sm"
-                    className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 truncate px-2"
+                    className="h-10 md:h-8 text-sm md:text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 truncate px-2"
                     onClick={() => onPresetSelect(preset.harmonics)}
                     title={preset.name}
                   >

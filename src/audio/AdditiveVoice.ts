@@ -1,9 +1,8 @@
 import type { Harmonic } from "@/types";
 import { getAudioContext, getMasterGain } from "./audioContext";
-import { MAX_AMPLITUDE } from "@/lib/constants";
+import { MAX_AMPLITUDE, MAX_HARMONICS } from "@/lib/constants";
 
 const ATTACK_TIME = 0.01; // 10ms
-const NUM_HARMONICS = 32;
 
 /**
  * Single oscillator info for detuned partials
@@ -35,7 +34,7 @@ export class AdditiveVoice {
   private baseFrequency = 440;
   private isPlaying = false;
   private harmonics: Harmonic[] = [];
-  private harmonicCount = NUM_HARMONICS;
+  private harmonicCount = MAX_HARMONICS;
   private oscillatorsCreated = false;
 
   constructor() {

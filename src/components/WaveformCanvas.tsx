@@ -3,7 +3,7 @@ import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { generateWaveformFromHarmonics, computeHarmonicsFromWaveform } from "@/lib/dft";
-import { compressHarmonics, loadHarmonics } from "@/lib/presets";
+import { loadHarmonics } from "@/lib/presets";
 import type { Harmonic } from "@/hooks";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,8 @@ export function WaveformCanvas({
   const animationRef = useRef<number>(0);
   const [smoothing, setSmoothing] = useState(0); // 0-100
   const [isSmoothingDragging, setIsSmoothingDragging] = useState(false);
+  const [isSharpMode, setIsSharpMode] = useState(false); // Secret sharpen mode
+  const [isActivelyDrawing, setIsActivelyDrawing] = useState(false); // For UI reactivity
   const lastHarmonicsRef = useRef<Harmonic[]>(harmonics);
 
   // Compute effective harmonics (zero out tuning when disabled)
@@ -53,7 +55,7 @@ export function WaveformCanvas({
     return -(y - centerY) / (height / 2);
   }, []);
 
-  // Smooth waveform using a simple moving average with periodic wrapping
+  // Process waveform: smooth or sharpen based on mode
   const smoothWaveform = useCallback((points: number[], strength: number): number[] => {
     if (strength <= 0 || points.length === 0) return [...points];
 
@@ -62,23 +64,33 @@ export function WaveformCanvas({
     
     if (windowSize <= 1) return [...points];
 
-    const result = new Array(points.length).fill(0);
+    // First compute smoothed version (moving average with periodic wrapping)
+    const smoothed = new Array(points.length).fill(0);
     const len = points.length;
     
     for (let i = 0; i < len; i++) {
       let sum = 0;
       
       for (let j = -windowSize; j <= windowSize; j++) {
-        // Use modulo for periodic wrapping (waveform wraps from end to start)
         const idx = (i + j + len) % len;
         sum += points[idx];
       }
-      // Count is always constant: 2 * windowSize + 1
-      result[i] = sum / (2 * windowSize + 1);
+      smoothed[i] = sum / (2 * windowSize + 1);
     }
     
-    return result;
-  }, []);
+    // If in sharpen mode, apply unsharp masking: sharpened = original + amount * (original - smoothed)
+    if (isSharpMode) {
+      const sharpAmount = 1 + (strength / 100) * 3; // 1x to 4x sharpening
+      const result = new Array(len).fill(0);
+      for (let i = 0; i < len; i++) {
+        const highFreq = points[i] - smoothed[i];
+        result[i] = Math.max(-1, Math.min(1, points[i] + highFreq * sharpAmount));
+      }
+      return result;
+    }
+
+    return smoothed;
+  }, [isSharpMode]);
 
   // Initialize rawPoints from harmonics if empty or if harmonics changed externally
   useEffect(() => {
@@ -105,15 +117,8 @@ export function WaveformCanvas({
   const handleSmoothingCommit = useCallback(() => {
     if (rawPointsRef.current.length > 0) {
         const smoothedPoints = smoothWaveform(rawPointsRef.current, smoothing);
-        const rawHarmonics = computeHarmonicsFromWaveform(smoothedPoints, 32);
-        
-        // Compress and reload to clean up (reset phase/tuning for silent partials)
-        // and ensure consistent data structure
-        const compressed = compressHarmonics(rawHarmonics);
-        // Cast to any because compression returns partials but load expects partials structure
-        // actually loadHarmonics expects {id, ...} which compress returns.
-        // We need to pass harmonicCount to loadHarmonics to maintain array size
-        const newHarmonics = loadHarmonics(compressed as any[], harmonicCount);
+      const rawHarmonics = computeHarmonicsFromWaveform(smoothedPoints, harmonicCount);
+      const newHarmonics = loadHarmonics(rawHarmonics, harmonicCount);
         
         lastHarmonicsRef.current = newHarmonics; // optimistic update
         onDrawComplete(newHarmonics);
@@ -280,7 +285,9 @@ export function WaveformCanvas({
       }
 
       isDrawingRef.current = true;
+      setIsActivelyDrawing(true);
       currentStrokePointsRef.current.clear();
+      setSmoothing(0); // Reset to show raw waveform during drawing
 
       const rect = canvas.getBoundingClientRect();
       const x = Math.floor(e.clientX - rect.left);
@@ -347,6 +354,7 @@ export function WaveformCanvas({
     if (!isDrawMode || !isDrawingRef.current) return;
 
     isDrawingRef.current = false;
+    setIsActivelyDrawing(false);
     currentStrokePointsRef.current.clear(); // End stroke
     lastMousePosRef.current = null;
 
@@ -354,12 +362,13 @@ export function WaveformCanvas({
     const smoothedPoints = smoothWaveform(rawPointsRef.current, smoothing);
 
     // Convert to harmonics via DFT
-    const newHarmonics = computeHarmonicsFromWaveform(smoothedPoints, 32);
+    const rawHarmonics = computeHarmonicsFromWaveform(smoothedPoints, harmonicCount);
+    const newHarmonics = loadHarmonics(rawHarmonics, harmonicCount);
     
     // Update
     lastHarmonicsRef.current = newHarmonics;
     onDrawComplete(newHarmonics);
-  }, [isDrawMode, onDrawComplete, smoothing, smoothWaveform]);
+  }, [isDrawMode, onDrawComplete, smoothing, smoothWaveform, harmonicCount]);
 
   return (
     <div ref={containerRef} className={cn("relative w-full h-full", className)}>
@@ -378,11 +387,22 @@ export function WaveformCanvas({
 
       {/* Draw mode controls */}
       <div 
-        className="absolute top-2 right-2 flex items-center gap-3 bg-slate-900/50 backdrop-blur-sm p-1 rounded-full border border-slate-800 transition-all duration-300"
+        className={cn(
+          "absolute top-2 right-2 flex items-center gap-3 bg-slate-900/50 backdrop-blur-sm p-1 rounded-full border border-slate-800 transition-all duration-300",
+          isActivelyDrawing && "opacity-10 pointer-events-none"
+        )}
       >
         {isDrawMode && (
              <div className="flex items-center gap-2 pl-3 pr-1 animate-in fade-in slide-in-from-right-4 duration-300">
-                <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">Smooth</span>
+            <span
+              className={cn(
+                "text-[10px] font-mono uppercase tracking-wider cursor-default select-none transition-colors",
+                isSharpMode ? "text-pink-400" : "text-slate-400"
+              )}
+              onDoubleClick={() => setIsSharpMode(prev => !prev)}
+            >
+              {isSharpMode ? "Sharp" : "Smooth"}
+            </span>
                 <div className="w-24" onPointerDown={() => setIsSmoothingDragging(true)}>
                     <Slider
                         value={smoothing}
@@ -400,18 +420,19 @@ export function WaveformCanvas({
         )}
 
         <Button
-            variant="ghost"
+          variant="ghost"
             size="icon"
             className={cn(
-            "h-8 w-8 rounded-full",
+              "h-8 w-8 rounded-full group",
             isDrawMode && "bg-orange-500 text-white hover:bg-orange-600 hover:text-white"
             )}
             onClick={() => onDrawModeChange(!isDrawMode)}
         >
             <Pencil
             className={cn(
-                "h-4 w-4",
-                isDrawMode && "drop-shadow-sm"
+              "h-4 w-4 text-white/50 transition-colors",
+              !isDrawMode && "group-hover/button:text-slate-500",
+              isDrawMode && "drop-shadow-sm text-white"
             )}
             />
         </Button>

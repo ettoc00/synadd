@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 
 interface UseHistoryOptions {
   maxHistory?: number;
@@ -14,6 +14,56 @@ interface UseHistoryReturn<T> {
   clearHistory: () => void;
 }
 
+// History store to track past/future stacks without causing ref-during-render issues
+function createHistoryStore<T>() {
+  let past: T[] = [];
+  let future: T[] = [];
+  const listeners: Set<() => void> = new Set();
+
+  const notify = () => listeners.forEach((l) => l());
+
+  return {
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    getPastLength: () => past.length,
+    getFutureLength: () => future.length,
+    pushPast: (value: T, maxHistory: number) => {
+      past = [...past, value].slice(-maxHistory);
+      future = [];
+      notify();
+    },
+    popPast: (): T | undefined => {
+      if (past.length === 0) return undefined;
+      const value = past[past.length - 1];
+      past = past.slice(0, -1);
+      notify();
+      return value;
+    },
+    pushFuture: (value: T) => {
+      future = [value, ...future];
+      notify();
+    },
+    popFuture: (): T | undefined => {
+      if (future.length === 0) return undefined;
+      const value = future[0];
+      future = future.slice(1);
+      notify();
+      return value;
+    },
+    appendPast: (value: T) => {
+      past = [...past, value];
+      notify();
+    },
+    clear: () => {
+      past = [];
+      future = [];
+      notify();
+    },
+  };
+}
+
 /**
  * A hook that wraps useState with undo/redo history.
  * By default, every setState call is recorded. Pass `false` as second arg to skip recording.
@@ -25,10 +75,10 @@ export function useHistory<T>(
   const { maxHistory = 50 } = options;
 
   const [state, setStateInternal] = useState(initialState);
+  const [store] = useState(() => createHistoryStore<T>());
 
-  // Use refs to avoid recreating callbacks
-  const pastRef = useRef<T[]>([]);
-  const futureRef = useRef<T[]>([]);
+  const canUndo = useSyncExternalStore(store.subscribe, store.getPastLength) > 0;
+  const canRedo = useSyncExternalStore(store.subscribe, store.getFutureLength) > 0;
 
   const setState = useCallback(
     (value: T | ((prev: T) => T), recordHistory = true) => {
@@ -36,53 +86,46 @@ export function useHistory<T>(
         const newValue = typeof value === "function" ? (value as (prev: T) => T)(prev) : value;
 
         if (recordHistory) {
-          // Push current state to past, clear future
-          pastRef.current = [...pastRef.current, prev].slice(-maxHistory);
-          futureRef.current = [];
+          store.pushPast(prev, maxHistory);
         }
 
         return newValue;
       });
     },
-    [maxHistory]
+    [maxHistory, store]
   );
 
   const undo = useCallback(() => {
+    const previous = store.popPast();
+    if (previous === undefined) return;
+
     setStateInternal((current) => {
-      if (pastRef.current.length === 0) return current;
-
-      const previous = pastRef.current[pastRef.current.length - 1];
-      pastRef.current = pastRef.current.slice(0, -1);
-      futureRef.current = [current, ...futureRef.current];
-
+      store.pushFuture(current);
       return previous;
     });
-  }, []);
+  }, [store]);
 
   const redo = useCallback(() => {
+    const next = store.popFuture();
+    if (next === undefined) return;
+
     setStateInternal((current) => {
-      if (futureRef.current.length === 0) return current;
-
-      const next = futureRef.current[0];
-      futureRef.current = futureRef.current.slice(1);
-      pastRef.current = [...pastRef.current, current];
-
+      store.appendPast(current);
       return next;
     });
-  }, []);
+  }, [store]);
 
   const clearHistory = useCallback(() => {
-    pastRef.current = [];
-    futureRef.current = [];
-  }, []);
+    store.clear();
+  }, [store]);
 
   return {
     state,
     setState,
     undo,
     redo,
-    canUndo: pastRef.current.length > 0,
-    canRedo: futureRef.current.length > 0,
+    canUndo,
+    canRedo,
     clearHistory,
   };
 }
